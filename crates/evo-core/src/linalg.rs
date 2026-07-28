@@ -1,10 +1,10 @@
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Matrix {
     data: std::rc::Rc<[f32]>,
-    pub cols: usize,
     pub rows: usize,
+    pub cols: usize,
 }
 
 impl Matrix {
@@ -14,9 +14,36 @@ impl Matrix {
         } else {
             Matrix {
                 data: data.into(),
-                cols,
                 rows,
+                cols,
             }
+        }
+    }
+
+    pub fn map(&self, f: impl Fn(f32) -> f32) -> Matrix {
+        Matrix {
+            data: self.data.iter().map(|&x| f(x)).collect(),
+            rows: self.rows,
+            cols: self.cols,
+        }
+    }
+
+    pub fn zip_with(&self, other: &Matrix, f: impl Fn(f32, f32) -> f32) -> Matrix {
+        if (self.rows != other.rows)
+            || (self.cols != other.cols)
+            || self.data.len() != other.data.len()
+        {
+            panic!("Expected this matrix to have the same dimensions as other matrix.")
+        }
+        Matrix {
+            data: self
+                .data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(&a, &b)| f(a, b))
+                .collect(),
+            rows: self.rows,
+            cols: self.cols,
         }
     }
 }
@@ -94,26 +121,35 @@ impl Add<&Matrix> for Matrix {
 impl Add for &Matrix {
     type Output = Matrix;
     fn add(self, rhs: Self) -> Self::Output {
-        if self.rows != rhs.rows {
-            panic!("Expected lefthand-side matrix rows to be equal to righthand-side matrix rows.")
-        }
-        if self.cols != rhs.cols {
-            panic!(
-                "Expected lefthand-side matrix columns to be equal to righthand-side matrix columns."
-            )
-        }
-        let out_rows: usize = self.rows;
-        let out_cols: usize = rhs.cols;
-        let out_numel: usize = out_rows * out_cols;
-        let mut out_data = vec![0.0_f32; out_numel];
-        for i in 0..self.data.len() {
-            out_data[i] = self.data[i] + rhs.data[i];
-        }
-        Matrix {
-            data: out_data.into(),
-            rows: out_rows,
-            cols: out_cols,
-        }
+        self.zip_with(rhs, |a, b| a + b)
+    }
+}
+
+impl Sub for Matrix {
+    type Output = Matrix;
+    fn sub(self, rhs: Self) -> Self::Output {
+        &self - &rhs
+    }
+}
+
+impl Sub<Matrix> for &Matrix {
+    type Output = Matrix;
+    fn sub(self, rhs: Matrix) -> Self::Output {
+        self - &rhs
+    }
+}
+
+impl Sub<&Matrix> for Matrix {
+    type Output = Matrix;
+    fn sub(self, rhs: &Matrix) -> Self::Output {
+        &self - rhs
+    }
+}
+
+impl Sub for &Matrix {
+    type Output = Matrix;
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.zip_with(rhs, |a, b| a - b)
     }
 }
 
