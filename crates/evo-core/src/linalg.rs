@@ -1,8 +1,8 @@
-use std::ops::Mul;
+use std::ops::{Add, Mul};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Matrix {
-    data: Box<[f32]>,
+    data: std::rc::Rc<[f32]>,
     pub cols: usize,
     pub rows: usize,
 }
@@ -41,12 +41,13 @@ impl Mul<&Matrix> for Matrix {
         &self * rhs
     }
 }
+
 impl Mul for &Matrix {
     type Output = Matrix;
     fn mul(self, rhs: Self) -> Self::Output {
         if self.cols != rhs.rows {
             panic!(
-                "Expected lefthand-side matrix columns to be equal to right hand side matrix rows."
+                "Expected lefthand-side matrix columns to be equal to righthand-side matrix rows."
             )
         }
         let out_rows: usize = self.rows;
@@ -62,15 +63,70 @@ impl Mul for &Matrix {
             }
         }
         Matrix {
-            data: out_data.into_boxed_slice(),
+            data: out_data.into(),
             rows: out_rows,
             cols: out_cols,
         }
     }
 }
+
+impl Add for Matrix {
+    type Output = Matrix;
+    fn add(self, rhs: Self) -> Self::Output {
+        &self + &rhs
+    }
+}
+
+impl Add<Matrix> for &Matrix {
+    type Output = Matrix;
+    fn add(self, rhs: Matrix) -> Self::Output {
+        self + &rhs
+    }
+}
+
+impl Add<&Matrix> for Matrix {
+    type Output = Matrix;
+    fn add(self, rhs: &Matrix) -> Self::Output {
+        &self + rhs
+    }
+}
+
+impl Add for &Matrix {
+    type Output = Matrix;
+    fn add(self, rhs: Self) -> Self::Output {
+        if self.rows != rhs.rows {
+            panic!("Expected lefthand-side matrix rows to be equal to righthand-side matrix rows.")
+        }
+        if self.cols != rhs.cols {
+            panic!(
+                "Expected lefthand-side matrix columns to be equal to righthand-side matrix columns."
+            )
+        }
+        let out_rows: usize = self.rows;
+        let out_cols: usize = rhs.cols;
+        let out_numel: usize = out_rows * out_cols;
+        let mut out_data = vec![0.0_f32; out_numel];
+        for i in 0..self.data.len() {
+            out_data[i] = self.data[i] + rhs.data[i];
+        }
+        Matrix {
+            data: out_data.into(),
+            rows: out_rows,
+            cols: out_cols,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_mismatch_mat_constructor() {
+        let data_a: [f32; 4] = [1., 2., 3., 4.];
+        let _ = Matrix::new(&data_a, 2, 3);
+    }
 
     #[test]
     fn test_matmul() {
@@ -129,13 +185,55 @@ mod tests {
         let a = Matrix::new(&data_a, 2, 2);
         let data_b: [f32; 6] = [7., 8., 9., 10., 11., 12.];
         let b = Matrix::new(&data_b, 3, 2);
-        let c = &a * &b;
+        let _ = &a * &b;
+    }
+
+    #[test]
+    fn test_add() {
+        let data_a: [f32; 6] = [1., 2., 3., 4., 5., 6.];
+        let a = Matrix::new(&data_a, 3, 2);
+        let data_b: [f32; 6] = [7., 8., 9., 10., 11., 12.];
+        let b = Matrix::new(&data_b, 3, 2);
+        let c = a + b;
+        let reference = Matrix::new(
+            &[1. + 7., 2. + 8., 3. + 9., 4. + 10., 5. + 11., 6. + 12.],
+            3,
+            2,
+        );
+
+        assert_eq!(c, reference);
+    }
+
+    #[test]
+    fn test_ref_add() {
+        let data_a: [f32; 6] = [1., 2., 3., 4., 5., 6.];
+        let a = Matrix::new(&data_a, 3, 2);
+        let data_b: [f32; 6] = [7., 8., 9., 10., 11., 12.];
+        let b = Matrix::new(&data_b, 3, 2);
+        let reference = Matrix::new(
+            &[1. + 7., 2. + 8., 3. + 9., 4. + 10., 5. + 11., 6. + 12.],
+            3,
+            2,
+        );
+
+        let c = &a + &b;
+        assert_eq!(c, reference);
+
+        let c = a + &b;
+        assert_eq!(c, reference);
+
+        let a = Matrix::new(&data_a, 3, 2);
+        let c = &a + &b;
+        assert_eq!(c, reference);
     }
 
     #[test]
     #[should_panic]
-    fn test_mismatch_mat_constructor() {
+    fn test_mismatch_add() {
         let data_a: [f32; 4] = [1., 2., 3., 4.];
-        let a = Matrix::new(&data_a, 2, 3);
+        let a = Matrix::new(&data_a, 2, 2);
+        let data_b: [f32; 6] = [7., 8., 9., 10., 11., 12.];
+        let b = Matrix::new(&data_b, 3, 2);
+        let _ = &a + &b;
     }
 }
