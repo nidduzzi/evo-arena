@@ -20,6 +20,31 @@ impl Matrix {
         }
     }
 
+    pub fn zeros(rows: usize, cols: usize) -> Matrix {
+        Matrix::from_const(0.0, rows, cols)
+    }
+
+    pub fn from_const(value: f32, rows: usize, cols: usize) -> Matrix {
+        let numel = rows * cols;
+        let data = vec![value; numel];
+        Self::new(&data, rows, cols)
+    }
+
+    pub fn from_dist<R: rand::Rng + ?Sized>(
+        dist: impl rand::distr::Distribution<f32>,
+        rng: &mut R,
+        rows: usize,
+        cols: usize,
+    ) -> Matrix {
+        let numel = rows * cols;
+        let data: Vec<f32> = dist.sample_iter(rng).take(numel).collect();
+        Matrix {
+            data: data.into(),
+            rows,
+            cols,
+        }
+    }
+
     pub fn map(&self, f: impl Fn(f32) -> f32) -> Matrix {
         Matrix {
             data: self.data.iter().map(|&x| f(x)).collect(),
@@ -259,7 +284,7 @@ mod tests {
         assert_eq!(c, reference);
 
         let a = Matrix::new(&data_a, 3, 2);
-        let c = &a + &b;
+        let c = &a + b;
         assert_eq!(c, reference);
     }
 
