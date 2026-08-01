@@ -58,7 +58,11 @@ impl Matrix {
             || (self.cols != other.cols)
             || self.data.len() != other.data.len()
         {
-            panic!("Expected this matrix to have the same dimensions as other matrix.")
+            panic!(
+                "Expected this matrix to have the same dimensions as other matrix. But got {:#?} and {:#?}.",
+                (self.rows, self.cols, self.data.len()),
+                (other.rows, other.cols, other.data.len())
+            )
         }
         Matrix {
             data: self
